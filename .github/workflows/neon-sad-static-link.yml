@@ -1,0 +1,46 @@
+name: NEON SAD static-link regression
+
+on:
+  push:
+    branches: [ci/neon-sad-symbol-collision]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: macos-26
+    timeout-minutes: 15
+    env:
+      XCODE_VERSION: "26.6"
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - name: Check out candidate and regression test
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: candidate
+          persist-credentials: false
+      - name: Check out unmodified XEVE
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: mpeg5/xeve
+          ref: 4eda6ca8e0c72fcc814f51800fde267769f9c118
+          path: baseline
+          persist-credentials: false
+      - name: Check out OpenAPV v0.3.0.0
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: AcademySoftwareFoundation/openapv
+          ref: 9f6fd2a7369db90acec67d99fc57724f1136fb84
+          path: openapv
+          persist-credentials: false
+      - name: Select and record Apple Silicon toolchain
+        run: |
+          test "$(uname -m)" = arm64
+          sudo xcode-select --switch "/Applications/Xcode_$XCODE_VERSION.app/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
+          xcrun clang --version
+      - name: Reproduce collision and verify candidate
+        run: sh candidate/.github/tests/neon-sad-static-link/check.sh
