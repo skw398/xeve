@@ -34,7 +34,7 @@
 #if ARM_NEON
 
 /* SAD for 16bit **************************************************************/
-int sad_16b_neon_4x2(int w, int h, void* src1, void* src2, int s_src1, int s_src2, int bit_depth)
+static int sad_16b_neon_4x2(int w, int h, void* src1, void* src2, int s_src1, int s_src2, int bit_depth)
 {
     int            sad;
     int16_t const* s1           = src1;
@@ -57,7 +57,7 @@ int sad_16b_neon_4x2(int w, int h, void* src1, void* src2, int s_src1, int s_src
     return (sad >> (bit_depth - 8));
 }
 
-int sad_16b_neon_4x2n(int w, int h, void* src1, void* src2, int s_src1, int s_src2, int bit_depth)
+static int sad_16b_neon_4x2n(int w, int h, void* src1, void* src2, int s_src1, int s_src2, int bit_depth)
 {
     int            sad;
     int16_t const* s1 = src1;
@@ -90,7 +90,7 @@ int sad_16b_neon_4x2n(int w, int h, void* src1, void* src2, int s_src1, int s_sr
     return (sad >> (bit_depth - 8));
 }
 
-int sad_16b_neon_4x4(int w, int h, void* src1, void* src2, int s_src1, int s_src2, int bit_depth)
+static int sad_16b_neon_4x4(int w, int h, void* src1, void* src2, int s_src1, int s_src2, int bit_depth)
 {
     int            sad;
     int16_t const* s1 = src1;
@@ -129,7 +129,7 @@ int sad_16b_neon_4x4(int w, int h, void* src1, void* src2, int s_src1, int s_src
     return (sad >> (bit_depth - 8));
 }
 
-int xeve_sad_16b_neon_8x2n(int w, int h, void* src1, void* src2, int s_src1, int s_src2, int bit_depth)
+static int sad_16b_neon_8x2n(int w, int h, void* src1, void* src2, int s_src1, int s_src2, int bit_depth)
 {
     int16_t const *pu2_inp, *pu2_inp2;
     int16_t const *pu2_ref, *pu2_ref2;
@@ -173,7 +173,7 @@ int xeve_sad_16b_neon_8x2n(int w, int h, void* src1, void* src2, int s_src1, int
     return (sad >> (bit_depth - 8));
 }
 
-int sad_16b_neon_16nx1n(int w, int h, void* src1, void* src2, int s_src1, int s_src2, int bit_depth)
+static int sad_16b_neon_16nx1n(int w, int h, void* src1, void* src2, int s_src1, int s_src2, int bit_depth)
 {
     int16_t const* pu2_inp = src1;
     int16_t const* pu2_ref = src2;
@@ -237,13 +237,13 @@ const XEVE_FN_SAD xeve_tbl_sad_16b_neon[8][8] = {
     /* width == 8 */
     {
         sad_16b,           /* height == 1 */
-        xeve_sad_16b_neon_8x2n, /* height == 2 */
-        xeve_sad_16b_neon_8x2n, /* height == 4 */
-        xeve_sad_16b_neon_8x2n, /* height == 8 */
-        xeve_sad_16b_neon_8x2n, /* height == 16 */
-        xeve_sad_16b_neon_8x2n, /* height == 32 */
-        xeve_sad_16b_neon_8x2n, /* height == 64 */
-        xeve_sad_16b_neon_8x2n, /* height == 128 */
+        sad_16b_neon_8x2n, /* height == 2 */
+        sad_16b_neon_8x2n, /* height == 4 */
+        sad_16b_neon_8x2n, /* height == 8 */
+        sad_16b_neon_8x2n, /* height == 16 */
+        sad_16b_neon_8x2n, /* height == 32 */
+        sad_16b_neon_8x2n, /* height == 64 */
+        sad_16b_neon_8x2n, /* height == 128 */
     },
     /* width == 16 */
     {

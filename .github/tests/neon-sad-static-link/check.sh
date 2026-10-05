@@ -52,11 +52,28 @@ cat "$build/baseline-link.log"
 grep -F 'multiple definition' "$build/baseline-link.log"
 grep -F 'sad_16b_neon_8x2n' "$build/baseline-link.log"
 
-grep -E '[[:space:]]xeve_sad_16b_neon_8x2n$' "$build/candidate/symbols.txt"
-if grep -E '[[:space:]]sad_16b_neon_8x2n$' "$build/candidate/symbols.txt"; then
-    echo 'ERROR: the candidate still defines the conflicting symbol' >&2
-    exit 1
-fi
+# All five helpers must have internal linkage, while the dispatch table
+# remains available to the other XEVE translation units.
+for helper in sad_16b_neon_4x2 sad_16b_neon_4x2n sad_16b_neon_4x4 \
+    sad_16b_neon_8x2n sad_16b_neon_16nx1n xeve_sad_16b_neon_8x2n; do
+    if grep -E "[[:space:]]$helper\$" "$build/candidate/symbols.txt"; then
+        echo "ERROR: the candidate still exports $helper" >&2
+        exit 1
+    fi
+done
+grep -E '[[:space:]]xeve_tbl_sad_16b_neon$' "$build/candidate/symbols.txt"
+echo 'ok: all five NEON SAD helpers have internal linkage'
+
+# Compare every dispatch entry before and after the linkage change, using
+# XEVE alone so the baseline can execute despite the OpenAPV collision.
+"$CC" -std=c99 -O2 -c "$test_dir/dispatch.c" -o "$build/dispatch.o"
+for variant in baseline candidate; do
+    "$CC" "$build/dispatch.o" "$build/$variant/libxeve_sad.a" -lm \
+        -o "$build/$variant-dispatch"
+    "$build/$variant-dispatch" > "$build/$variant-dispatch.txt"
+done
+cmp "$build/baseline-dispatch.txt" "$build/candidate-dispatch.txt"
+echo 'ok: all 64 SAD dispatch entries preserve results at 8-, 10-, and 12-bit depths (192 cases)'
 "$CC" "$build/consumer.o" "$build/candidate/libxeve_sad.a" \
     "$build/openapv/liboapv_sad.a" -lm -o "$build/candidate-consumer"
 "$build/candidate-consumer"
