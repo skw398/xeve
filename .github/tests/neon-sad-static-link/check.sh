@@ -1,7 +1,12 @@
 #!/bin/sh
 # Fork-only regression: compile the actual scalar and NEON SAD translation units.
-# This avoids unrelated full-project CMake/AppleClang configuration issues.
+# Full MAIN and BASE profile builds run in separate CI jobs.
 set -eu
+
+CC=${CC:-gcc}
+AR=${AR:-ar}
+NM=${NM:-nm}
+export LC_ALL=C
 
 test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 workspace=$GITHUB_WORKSPACE
@@ -16,12 +21,12 @@ build_xeve() {
     printf '#define XEVE_EXPORT\n' > "$output/xeve_exports.h"
     for unit in xeve_sad.c neon/xeve_sad_neon.c; do
         object=$(basename "$unit" .c)
-        xcrun clang -std=c99 -O2 -DARM=1 \
+        "$CC" -std=c99 -O2 -flax-vector-conversions -DARM=1 \
             -I"$source/inc" -I"$source/src_base" -I"$source/src_base/neon" -I"$output" \
             -c "$source/src_base/$unit" -o "$output/$object.o"
     done
-    xcrun ar rcs "$output/libxeve_sad.a" "$output/xeve_sad.o" "$output/xeve_sad_neon.o"
-    xcrun nm -gU "$output/libxeve_sad.a" > "$output/symbols.txt"
+    "$AR" rcs "$output/libxeve_sad.a" "$output/xeve_sad.o" "$output/xeve_sad_neon.o"
+    "$NM" --extern-only --defined-only "$output/libxeve_sad.a" > "$output/symbols.txt"
 }
 
 build_xeve baseline
@@ -29,29 +34,29 @@ build_xeve candidate
 
 for unit in oapv_sad.c neon/oapv_sad_neon.c; do
     object=$(basename "$unit" .c)
-    xcrun clang -std=c99 -O2 -DOAPV_STATIC_DEFINE \
+    "$CC" -std=c99 -O2 -flax-vector-conversions -DOAPV_STATIC_DEFINE \
         -I"$workspace/openapv/inc" -I"$workspace/openapv/src" -I"$workspace/openapv/src/neon" \
         -c "$workspace/openapv/src/$unit" -o "$build/openapv/$object.o"
 done
-xcrun ar rcs "$build/openapv/liboapv_sad.a" "$build/openapv/oapv_sad.o" "$build/openapv/oapv_sad_neon.o"
-xcrun clang -std=c99 -O2 -c "$test_dir/consumer.c" -o "$build/consumer.o"
+"$AR" rcs "$build/openapv/liboapv_sad.a" "$build/openapv/oapv_sad.o" "$build/openapv/oapv_sad_neon.o"
+"$CC" -std=c99 -O2 -c "$test_dir/consumer.c" -o "$build/consumer.o"
 
-grep -E '[[:space:]]_sad_16b_neon_8x2n$' "$build/baseline/symbols.txt"
-if xcrun clang "$build/consumer.o" "$build/baseline/libxeve_sad.a" \
+grep -E '[[:space:]]sad_16b_neon_8x2n$' "$build/baseline/symbols.txt"
+if "$CC" "$build/consumer.o" "$build/baseline/libxeve_sad.a" \
     "$build/openapv/liboapv_sad.a" -lm -o "$build/baseline-consumer" \
     > "$build/baseline-link.log" 2>&1; then
     echo 'ERROR: the unmodified baseline unexpectedly linked' >&2
     exit 1
 fi
 cat "$build/baseline-link.log"
-grep -F 'duplicate symbol' "$build/baseline-link.log"
+grep -F 'multiple definition' "$build/baseline-link.log"
 grep -F 'sad_16b_neon_8x2n' "$build/baseline-link.log"
 
-grep -E '[[:space:]]_xeve_sad_16b_neon_8x2n$' "$build/candidate/symbols.txt"
-if grep -E '[[:space:]]_sad_16b_neon_8x2n$' "$build/candidate/symbols.txt"; then
+grep -E '[[:space:]]xeve_sad_16b_neon_8x2n$' "$build/candidate/symbols.txt"
+if grep -E '[[:space:]]sad_16b_neon_8x2n$' "$build/candidate/symbols.txt"; then
     echo 'ERROR: the candidate still defines the conflicting symbol' >&2
     exit 1
 fi
-xcrun clang "$build/consumer.o" "$build/candidate/libxeve_sad.a" \
+"$CC" "$build/consumer.o" "$build/candidate/libxeve_sad.a" \
     "$build/openapv/liboapv_sad.a" -lm -o "$build/candidate-consumer"
 "$build/candidate-consumer"

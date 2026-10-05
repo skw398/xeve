@@ -10,11 +10,13 @@ permissions:
 
 jobs:
   regression:
-    runs-on: macos-26
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     env:
-      XCODE_VERSION: "26.6"
-      MACOSX_DEPLOYMENT_TARGET: "11.0"
+      CC: gcc
+      AR: ar
+      NM: nm
+      LC_ALL: C
     steps:
       - name: Check out candidate and regression test
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -35,12 +37,36 @@ jobs:
           ref: 9f6fd2a7369db90acec67d99fc57724f1136fb84
           path: openapv
           persist-credentials: false
-      - name: Select and record Apple Silicon toolchain
+      - name: Record Linux arm64 toolchain
         run: |
-          test "$(uname -m)" = arm64
-          sudo xcode-select --switch "/Applications/Xcode_$XCODE_VERSION.app/Contents/Developer"
-          xcodebuild -version
-          xcrun --sdk macosx --show-sdk-version
-          xcrun clang --version
+          test "$(uname -m)" = aarch64
+          gcc --version
+          ar --version
+          ld --version
       - name: Reproduce collision and verify candidate
         run: sh candidate/.github/tests/neon-sad-static-link/check.sh
+
+  build-profiles:
+    name: Build ${{ matrix.profile }} on Linux arm64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [MAIN, BASE]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record Linux arm64 toolchain
+        run: |
+          test "$(uname -m)" = aarch64
+          gcc --version
+          cmake --version
+      - name: Configure and build
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          cmake -S . -B build -DCMAKE_C_COMPILER=gcc -DCMAKE_BUILD_TYPE=Release -DSET_PROF="$PROFILE" -DARM=TRUE
+          cmake --build build --parallel 4
