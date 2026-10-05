@@ -1,0 +1,45 @@
+name: pkg-config static-link regression
+
+on:
+  push:
+    branches: [ci/pkgconfig-static-search-path]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install-link:
+    name: ${{ matrix.profile }} / ${{ matrix.libdir }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [MAIN, BASE]
+        libdir: [lib, lib64]
+    env:
+      PROFILE: ${{ matrix.profile }}
+      LIBDIR: ${{ matrix.libdir }}
+      LC_ALL: C
+    steps:
+      - name: Check out candidate and regression test
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: candidate
+          persist-credentials: false
+      - name: Check out unmodified XEVE
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: mpeg5/xeve
+          ref: 4eda6ca8e0c72fcc814f51800fde267769f9c118
+          path: baseline
+          persist-credentials: false
+      - name: Record toolchain
+        run: |
+          uname -m
+          gcc --version
+          cmake --version
+          pkg-config --version
+      - name: Verify installed static and shared consumers
+        run: sh candidate/.github/tests/pkgconfig-static-link/check.sh
